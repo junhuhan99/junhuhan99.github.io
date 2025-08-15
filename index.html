@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Make365 - 인터랙티브 웹 에이전시</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* 사용자 정의 스타일 및 애니메이션 */
+        body {
+            font-family: 'Poppins', 'Noto Sans KR', sans-serif;
+            background-color: #0a0a0a;
+            color: #EAEAEA;
+            overflow-x: hidden;
+        }
+
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .content-wrapper {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .text-gradient {
+             background: -webkit-linear-gradient(45deg, #00BFFF, #1E90FF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* 네비게이션 */
+        nav {
+            transform: translateY(-100%);
+        }
+        .nav-link {
+            position: relative;
+            transition: color 0.3s;
+        }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #00BFFF;
+            transition: width 0.3s ease-out;
+        }
+        .nav-link:hover::after, .nav-link.active::after {
+            width: 100%;
+        }
+        .nav-link:hover {
+            color: #00BFFF;
+        }
+
+        /* 버튼 */
+        .btn-glow {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #00BFFF;
+        }
+        .btn-glow:hover:not(:disabled) {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 10px 25px rgba(0, 191, 255, 0.4);
+            background-color: #00BFFF;
+            color: #0a0a0a;
+        }
+        .btn-glow:disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        /* 문의 등록하기 버튼 */
+        #submit-btn {
+            background-color: #ffffff;
+            color: #0a0a0a;
+            font-weight: 700;
+            border: none;
+            animation: pulse-glow 2.5s infinite ease-in-out;
+            transition: transform 0.3s ease;
+        }
+        #submit-btn:hover:not(:disabled) {
+           transform: translateY(-3px) scale(1.05);
+           color: #0a0a0a;
+        }
+        @keyframes pulse-glow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+            }
+            50% {
+                box-shadow: 0 0 35px rgba(255, 255, 255, 0.9);
+            }
+        }
+        
+        #preregister-btn {
+            background: linear-gradient(45deg, #8A2BE2, #4A00E0);
+            color: #ffffff;
+            font-weight: 700;
+            border: none;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        #preregister-btn:hover:not(:disabled) {
+           transform: scale(1.05);
+           box-shadow: 0 0 25px rgba(138, 43, 226, 0.7);
+        }
+
+        /* 타이핑 커서 */
+        .typed-cursor {
+            color: #00BFFF;
+            animation: blink 0.7s infinite;
+        }
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+        
+        /* 폼 스타일 */
+        .form-input {
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #00BFFF;
+            box-shadow: 0 0 15px rgba(0, 191, 255, 0.3);
+        }
+        
+        /* 토스트 메시지 */
+        #toast {
+            position: fixed;
+            bottom: 2.5rem; /* 40px */
+            right: 2.5rem; /* 40px */
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            z-index: 9999;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        #toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        #toast.success {
+            background-color: #28a745; /* Green */
+            color: white;
+        }
+        #toast.error {
+            background-color: #dc3545; /* Red */
+            color: white;
+        }
+
+        /* 3D 카드 효과 */
+        .team-card {
+            background-color: #1a1a1a;
+            transform-style: preserve-3d;
+            transition: transform 0.5s, box-shadow 0.5s;
+        }
+        .team-card:hover {
+            transform: perspective(1000px) rotateY(var(--rotateY)) rotateX(var(--rotateX)) scale3d(1.05, 1.05, 1.05);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+        .team-card-content {
+            transform: translateZ(40px);
+        }
+        
+        /* FAQ 아코디언 */
+        .faq-question {
+            cursor: pointer;
+        }
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out, padding 0.5s ease-out;
+            padding: 0 1.5rem;
+        }
+        .faq-item.active .faq-answer {
+            max-height: 300px; /* Adjust as needed */
+            padding: 1.5rem;
+        }
+        .faq-item.active .faq-icon {
+            transform: rotate(45deg);
+        }
+        .faq-icon {
+            transition: transform 0.3s ease-out;
+        }
+        
+        /* 텍스트 클립 애니메이션 */
+        .clip-text {
+            clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%);
+            transition: clip-path 1s ease-out;
+        }
+        .clip-text.visible {
+            clip-path: polygon(0 100%, 100% 100%, 100% 0, 0 0);
+        }
+
+    </style>
+</head>
+<body class="bg-black">
+    
+    <!-- Disclaimer Banner -->
+    <div id="disclaimer-banner" class="fixed top-0 left-0 w-full bg-yellow-500/20 backdrop-blur-sm text-white text-center p-3 z-[10000] flex justify-center items-center gap-4">
+        <p class="text-sm md:text-base">저희는 비사업자입니다. 재능 기부 및 포트폴리오 목적으로 사이트를 무료로 제작해 드리고 있습니다.</p>
+        <button id="close-disclaimer" class="text-2xl leading-none hover:text-yellow-300 transition-colors">&times;</button>
+    </div>
+
+    <canvas id="particle-canvas"></canvas>
+
+    <div class="content-wrapper pt-12"> <!-- Add padding top to account for banner height -->
+        <!-- Navigation -->
+        <nav id="navbar" class="fixed top-0 left-0 w-full bg-black bg-opacity-50 backdrop-blur-sm p-4 z-50">
+            <div class="container mx-auto flex justify-between items-center">
+                <a href="#home" class="nav-link text-2xl font-bold text-gradient">Make365</a>
+                <div class="hidden md:flex space-x-8">
+                    <a href="#process" class="nav-link text-gray-300">프로세스</a>
+                    <a href="#services" class="nav-link text-gray-300">서비스</a>
+                    <a href="#flexbuild" class="nav-link text-gray-300">플렉스빌드</a>
+                    <a href="#team" class="nav-link text-gray-300">팀 소개</a>
+                    <a href="#tech" class="nav-link text-gray-300">기술 스택</a>
+                    <a href="#faq" class="nav-link text-gray-300">FAQ</a>
+                    <a href="#contact" class="nav-link text-gray-300">문의하기</a>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Hero Section -->
+        <section id="home" class="min-h-screen flex flex-col items-center justify-center text-center p-6">
+            <div class="max-w-4xl mx-auto">
+                <h1 class="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-4">
+                    코드를 넘어, <br class="md:hidden"> <span class="text-gradient">경험을 디자인합니다</span>
+                </h1>
+                <p class="text-lg md:text-xl text-gray-300 mb-8">
+                    Make365는 <span id="typed-text"></span>으로 당신의 비전을 현실로 만듭니다.
+                </p>
+                <div class="space-y-4 sm:space-y-0 sm:space-x-4">
+                    <a href="#process" class="inline-block btn-glow text-white font-bold py-3 px-8 rounded-full">
+                        프로세스 보기
+                    </a>
+                    <a href="#contact" class="inline-block btn-glow text-white font-bold py-3 px-8 rounded-full">
+                        프로젝트 의뢰
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Process Section -->
+        <section id="process" class="py-20 px-6">
+            <div class="max-w-6xl mx-auto">
+                <div class="text-center mb-16">
+                    <h2 class="section-title text-3xl md:text-5xl font-bold text-white clip-text">Our Process</h2>
+                    <p class="section-subtitle text-gray-400 mt-2 clip-text">아이디어에서 현실까지, 체계적인 프로세스.</p>
+                </div>
+                <div class="grid md:grid-cols-4 gap-8 text-center">
+                    <div class="process-card bg-gray-900 bg-opacity-50 p-8 rounded-xl"><div class="text-5xl text-gradient mb-4">01</div><h3 class="text-2xl font-bold text-white mb-3">분석 및 기획</h3><p class="text-gray-400">비즈니스 목표와 타겟 사용자를 분석하여 최적의 전략을 수립합니다.</p></div>
+                    <div class="process-card bg-gray-900 bg-opacity-50 p-8 rounded-xl"><div class="text-5xl text-gradient mb-4">02</div><h3 class="text-2xl font-bold text-white mb-3">디자인 & UX/UI</h3><p class="text-gray-400">사용자 중심의 직관적이고 매력적인 인터페이스를 디자인합니다.</p></div>
+                    <div class="process-card bg-gray-900 bg-opacity-50 p-8 rounded-xl"><div class="text-5xl text-gradient mb-4">03</div><h3 class="text-2xl font-bold text-white mb-3">개발 및 구현</h3><p class="text-gray-400">최신 기술을 사용하여 빠르고 안정적인 웹사이트를 개발합니다.</p></div>
+                    <div class="process-card bg-gray-900 bg-opacity-50 p-8 rounded-xl"><div class="text-5xl text-gradient mb-4">04</div><h3 class="text-2xl font-bold text-white mb-3">테스트 및 배포</h3><p class="text-gray-400">완벽한 결과물을 위해 꼼꼼한 테스트를 거쳐 성공적으로 런칭합니다.</p></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Services Section -->
+        <section id="services" class="py-20 px-6">
+            <div class="max-w-6xl mx-auto">
+                <div class="text-center mb-16">
+                    <h2 class="section-title text-3xl md:text-5xl font-bold text-white clip-text">Our Services</h2>
+                    <p class="section-subtitle text-gray-400 mt-2 clip-text">우리는 다음과 같은 전문 서비스를 제공합니다.</p>
+                </div>
+                <div class="grid md:grid-cols-3 gap-8 text-center">
+                    <div class="service-card bg-gray-900 bg-opacity-50 p-8 rounded-xl"><h3 class="text-2xl font-bold text-white mb-3 text-gradient">웹 디자인</h3><p class="text-gray-400">브랜드의 가치를 높이는 독창적이고 사용자 친화적인 디자인을 제공합니다.</p></div>
+                    <div class="service-card bg-gray-900 bg-opacity-50 p-8 rounded-xl"><h3 class="text-2xl font-bold text-white mb-3 text-gradient">웹 개발</h3><p class="text-gray-400">최신 기술 스택을 활용하여 빠르고 확장 가능한 웹사이트를 구축합니다.</p></div>
+                    <div class="service-card bg-gray-900 bg-opacity-50 p-8 rounded-xl"><h3 class="text-2xl font-bold text-white mb-3 text-gradient">인터랙티브 애니메이션</h3><p class="text-gray-400">사용자의 시선을 사로잡는 동적인 애니메이션으로 특별한 경험을 선사합니다.</p></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FlexBuild Section -->
+        <section id="flexbuild" class="py-24 px-6">
+            <div class="max-w-xl mx-auto text-center bg-gray-900 bg-opacity-70 backdrop-blur-sm border border-purple-500/30 p-8 md:p-12 rounded-2xl">
+                 <h2 class="text-3xl md:text-4xl font-bold text-white" style="text-shadow: 0 0 15px rgba(138, 43, 226, 0.7);">플렉스빌드, 가장 먼저 만나보세요</h2>
+                 <p class="text-gray-300 mt-4">코드 없이 드래그 앤 드롭만으로 웹과 앱을 동시에 제작하는 혁신적인 빌더입니다.</p>
+                 <p class="text-gray-300 mt-2 mb-8">사전 예약을 신청하고 런칭 소식과 특별한 혜택을 가장 먼저 받아보세요.</p>
+                 <form id="preregister-form" class="flex flex-col sm:flex-row gap-4">
+                     <input type="email" name="email" placeholder="이메일 주소를 입력하세요" class="w-full p-4 rounded-md bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-purple-500 focus:outline-none text-white" required>
+                     <button id="preregister-btn" type="submit" class="py-4 px-8 rounded-md whitespace-nowrap">
+                         사전 예약 신청하기
+                     </button>
+                 </form>
+            </div>
+        </section>
+
+        <!-- Team Section -->
+        <section id="team" class="py-20 px-6">
+            <div class="max-w-6xl mx-auto">
+                <div class="text-center mb-16">
+                    <h2 class="section-title text-3xl md:text-5xl font-bold text-white clip-text">Meet Our Team</h2>
+                    <p class="section-subtitle text-gray-400 mt-2 clip-text">열정과 전문성을 갖춘 최고의 전문가.</p>
+                </div>
+                <div class="flex justify-center">
+                    <div class="team-card text-center rounded-xl p-8 md:w-1/3">
+                        <img src="https://placehold.co/150x150/1E90FF/FFFFFF?text=Han" alt="Team member" class="w-36 h-36 rounded-full mx-auto mb-4 border-4 border-gray-700 team-card-content">
+                        <div class="team-card-content">
+                            <h3 class="text-2xl font-bold text-white">Han</h3>
+                            <p class="text-gray-400">전체 개발자</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tech Stack Section -->
+        <section id="tech" class="py-20 px-6">
+            <div class="max-w-4xl mx-auto">
+                <div class="text-center mb-16">
+                    <h2 class="section-title text-3xl md:text-5xl font-bold text-white clip-text">Technology Stack</h2>
+                    <p class="section-subtitle text-gray-400 mt-2 clip-text">우리는 최고의 기술로 최고의 결과물을 만듭니다.</p>
+                </div>
+                <div class="flex flex-wrap justify-center items-center gap-x-12 gap-y-8">
+                    <div class="tech-icon flex flex-col items-center" title="HTML5">
+                        <svg class="w-20 h-20 text-gray-400 hover:text-orange-500 transition-colors" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M1.5 0h21l-1.91 21.563L11.977 24l-8.564-2.438zM8.5 8.5h7L15 4l-6 .012zm.438 7.5l-.438-4.5h4l.188-2h-4.438l-.438-4.5h11.875l-1.938 22L12 22.547l-5.438-1.547z"/></svg>
+                        <p class="mt-2 text-gray-300 font-semibold">HTML5</p>
+                    </div>
+                    <div class="tech-icon flex flex-col items-center" title="CSS3">
+                        <svg class="w-20 h-20 text-gray-400 hover:text-blue-500 transition-colors" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M1.5 0h21l-1.91 21.563L11.977 24l-8.564-2.438zM19.5 4H4.5l.4 4.5h14.2l-.4 4.5H5.3l.4 4.5 6.3 1.762 6.3-1.762.9-10.25z"/></svg>
+                        <p class="mt-2 text-gray-300 font-semibold">CSS3</p>
+                    </div>
+                    <div class="tech-icon flex flex-col items-center" title="JavaScript">
+                        <svg class="w-20 h-20 text-gray-400 hover:text-yellow-400 transition-colors" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M0 0h24v24H0zM8.25 21.75h2.25V19.5H8.25v2.25zm4.5 0h2.25V19.5H12.75v2.25zM8.25 17.25h2.25v-2.25H8.25v2.25zm4.5 0h2.25v-2.25H12.75v2.25zM8.25 12.75h2.25v-2.25H8.25v2.25zm4.5 0h2.25v-2.25H12.75v2.25zM3.75 21.75h2.25V19.5H3.75v2.25zM3.75 17.25h2.25v-2.25H3.75v2.25zM3.75 12.75h2.25v-2.25H3.75v2.25zM3.75 8.25h2.25V6H3.75v2.25zM8.25 8.25h2.25V6H8.25v2.25zM12.75 8.25h2.25V6H12.75v2.25zM17.25 8.25h2.25V6H17.25v2.25zM17.25 12.75h2.25v-2.25H17.25v2.25zM17.25 17.25h2.25v-2.25H17.25v2.25zM17.25 21.75h2.25V19.5H17.25v2.25z"/></svg>
+                        <p class="mt-2 text-gray-300 font-semibold">JavaScript</p>
+                    </div>
+                    <div class="tech-icon flex flex-col items-center" title="React">
+                        <svg class="w-20 h-20 text-gray-400 hover:text-cyan-400 transition-colors" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-2.79-11.21c-.93.93-2.44.93-3.37 0s-.93-2.44 0-3.37c.93-.93 2.44-.93 3.37 0s.93 2.44 0 3.37zm5.58 0c-.93.93-2.44.93-3.37 0s-.93-2.44 0-3.37c.93-.93 2.44-.93 3.37 0s.93 2.44 0 3.37zm-2.79 5.58c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/></svg>
+                        <p class="mt-2 text-gray-300 font-semibold">React</p>
+                    </div>
+                    <div class="tech-icon flex flex-col items-center" title="GSAP">
+                        <svg class="w-20 h-20 text-gray-400 hover:text-green-500 transition-colors" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M18.883 7.06H9.156l5.035 8.878h-4.24l-5.03-8.878H.68l6.814 12h4.234l6.84-12h-4.24l-2.61 4.604-2.6-4.604h8.555z"/></svg>
+                        <p class="mt-2 text-gray-300 font-semibold">GSAP</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FAQ Section -->
+        <section id="faq" class="py-20 px-6">
+            <div class="max-w-4xl mx-auto">
+                <div class="text-center mb-16">
+                    <h2 class="section-title text-3xl md:text-5xl font-bold text-white clip-text">Frequently Asked Questions</h2>
+                    <p class="section-subtitle text-gray-400 mt-2 clip-text">궁금한 점이 있으신가요? 먼저 확인해보세요.</p>
+                </div>
+                <div class="space-y-4">
+                    <div class="faq-item bg-gray-900 bg-opacity-50 rounded-lg">
+                        <div class="faq-question flex justify-between items-center p-6">
+                            <h3 class="text-xl font-semibold text-white">웹사이트 제작 기간은 얼마나 걸리나요?</h3>
+                            <div class="faq-icon text-2xl text-gradient">+</div>
+                        </div>
+                        <div class="faq-answer text-gray-400"><p>프로젝트의 규모와 복잡성에 따라 다르지만, 평균적으로 기획부터 배포까지 1주에서 3주 정도 소요됩니다. 자세한 일정은 상담을 통해 조율합니다.</p></div>
+                    </div>
+                    <div class="faq-item bg-gray-900 bg-opacity-50 rounded-lg">
+                        <div class="faq-question flex justify-between items-center p-6">
+                            <h3 class="text-xl font-semibold text-white">제작 비용은 어떻게 되나요?</h3>
+                            <div class="faq-icon text-2xl text-gradient">+</div>
+                        </div>
+                        <div class="faq-answer text-gray-400"><p>제작 비용은 완전 무료입니다. 저희는 포트폴리오 확보 및 재능 기부의 목적으로 서비스를 제공하며, 추가 비용은 일절 없습니다.</p></div>
+                    </div>
+                    <div class="faq-item bg-gray-900 bg-opacity-50 rounded-lg">
+                        <div class="faq-question flex justify-between items-center p-6">
+                            <h3 class="text-xl font-semibold text-white">제작 후 유지보수도 지원되나요?</h3>
+                            <div class="faq-icon text-2xl text-gradient">+</div>
+                        </div>
+                        <div class="faq-answer text-gray-400"><p>네, 물론입니다. 웹사이트가 항상 최상의 상태를 유지하도록 기술 지원, 보안 업데이트, 콘텐츠 수정 등 맞춤형 유지보수 플랜을 제공합니다.</p></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Contact Section -->
+        <section id="contact" class="py-20 px-6">
+            <div class="max-w-3xl mx-auto text-center">
+                 <h2 class="section-title text-3xl md:text-5xl font-bold text-white clip-text">Get In Touch</h2>
+                 <p class="section-subtitle text-gray-400 mt-2 mb-12 clip-text">당신의 아이디어를 현실로 만들 준비가 되었습니다. 지금 바로 문의하세요.</p>
+                 <form id="contact-form" novalidate>
+                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                         <input type="text" name="name" placeholder="성함" class="form-input w-full p-3 rounded-md" required>
+                         <input type="email" name="email" placeholder="이메일" class="form-input w-full p-3 rounded-md" required>
+                     </div>
+                     <textarea name="message" placeholder="프로젝트 내용" rows="6" class="form-input w-full p-3 rounded-md mb-6" required></textarea>
+                     <button id="submit-btn" type="submit" class="py-3 px-12 rounded-full">
+                         문의 등록하기
+                     </button>
+                 </form>
+            </div>
+        </section>
+
+        <footer class="text-center p-8 text-gray-500">
+            &copy; 2024 Make365. All Rights Reserved.
+        </footer>
+    </div>
+    
+    <!-- Toast Notification -->
+    <div id="toast">
+        <p id="toast-message"></p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/typed.js@2.0.12"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/ScrollTrigger.min.js"></script>
+    <script>
+        // --- Supabase Initialization ---
+        const SUPABASE_URL = 'https://eqemepsrtvbdiceeypes.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxZW1lcHNydHZiZGljZWV5cGVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNDkwMDYsImV4cCI6MjA3MDcyNTAwNn0.gwek1IHiThYGGgBev0WY1XMHT_J41eApxjqCS40zMVs';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // --- Disclaimer Banner ---
+        const disclaimerBanner = document.getElementById('disclaimer-banner');
+        const closeDisclaimerBtn = document.getElementById('close-disclaimer');
+        const contentWrapper = document.querySelector('.content-wrapper');
+        
+        if (disclaimerBanner) {
+            contentWrapper.style.paddingTop = `${disclaimerBanner.offsetHeight}px`;
+            if(closeDisclaimerBtn) {
+                closeDisclaimerBtn.addEventListener('click', () => {
+                    disclaimerBanner.style.display = 'none';
+                    contentWrapper.style.paddingTop = '0px';
+                });
+            }
+        }
+
+
+        // --- Particle Network Canvas ---
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let particlesArray;
+
+        const mouse = { x: null, y: null, radius: (canvas.height/120) * (canvas.width/120) };
+
+        window.addEventListener('mousemove', (event) => {
+            mouse.x = event.clientX;
+            mouse.y = event.clientY;
+        });
+        window.addEventListener('mouseout', () => {
+            mouse.x = undefined;
+            mouse.y = undefined;
+        });
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            mouse.radius = (canvas.height/120) * (canvas.width/120);
+            init();
+        });
+
+        class Particle {
+            constructor(x, y, directionX, directionY, size) {
+                this.x = x; this.y = y; this.directionX = directionX; this.directionY = directionY;
+                this.size = size;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false);
+                ctx.fillStyle = 'rgba(0, 191, 255, 0.5)';
+                ctx.fill();
+            }
+            update() {
+                if (this.x > canvas.width || this.x < 0) this.directionX = -this.directionX;
+                if (this.y > canvas.height || this.y < 0) this.directionY = -this.directionY;
+                
+                let dx = mouse.x - this.x;
+                let dy = mouse.y - this.y;
+                let distance = Math.sqrt(dx*dx + dy*dy);
+                if (distance < mouse.radius + this.size){
+                    if(mouse.x < this.x && this.x < canvas.width - this.size * 10) this.x += 5;
+                    if(mouse.x > this.x && this.x > this.size * 10) this.x -= 5;
+                    if(mouse.y < this.y && this.y < canvas.height - this.size * 10) this.y += 5;
+                    if(mouse.y > this.y && this.y > this.size * 10) this.y -= 5;
+                }
+                this.x += this.directionX;
+                this.y += this.directionY;
+                this.draw();
+            }
+        }
+
+        function init() {
+            particlesArray = [];
+            let numberOfParticles = (canvas.height * canvas.width) / 9000;
+            for (let i=0; i < numberOfParticles; i++) {
+                let size = (Math.random() * 2) + 1;
+                let x = (Math.random() * ((innerWidth - size * 2) - (size * 2)) + size * 2);
+                let y = (Math.random() * ((innerHeight - size * 2) - (size * 2)) + size * 2);
+                let directionX = (Math.random() * .4) - .2;
+                let directionY = (Math.random() * .4) - .2;
+                particlesArray.push(new Particle(x, y, directionX, directionY, size));
+            }
+        }
+        
+        function connect() {
+            let opacityValue = 1;
+            for (let a = 0; a < particlesArray.length; a++) {
+                for (let b = a; b < particlesArray.length; b++) {
+                    let distance = ((particlesArray[a].x - particlesArray[b].x) * (particlesArray[a].x - particlesArray[b].x))
+                                 + ((particlesArray[a].y - particlesArray[b].y) * (particlesArray[a].y - particlesArray[b].y));
+                    if (distance < (canvas.width/7) * (canvas.height/7)) {
+                        opacityValue = 1 - (distance/20000);
+                        ctx.strokeStyle = `rgba(0, 191, 255, ${opacityValue})`;
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(particlesArray[a].x, particlesArray[a].y);
+                        ctx.lineTo(particlesArray[b].x, particlesArray[b].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            ctx.clearRect(0,0,innerWidth, innerHeight);
+            for (let i=0; i<particlesArray.length; i++) {
+                particlesArray[i].update();
+            }
+            connect();
+        }
+        
+        init();
+        animate();
+
+        // --- Typed.js ---
+        new Typed('#typed-text', {
+            strings: ['혁신적인 기술', '직관적인 디자인', '성공적인 비즈니스'],
+            typeSpeed: 70,
+            backSpeed: 40,
+            backDelay: 1500,
+            loop: true,
+            smartBackspace: true,
+        });
+        
+        // --- Toast Message Function ---
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+        let toastTimeout;
+
+        function showToast(message, type = 'success') {
+            clearTimeout(toastTimeout);
+            toastMessage.textContent = message;
+            toast.className = ''; // Reset classes
+            toast.classList.add('show', type);
+            
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 4000);
+        }
+
+        // --- Contact Form Submission ---
+        const contactForm = document.getElementById('contact-form');
+        const contactSubmitButton = contactForm.querySelector('button[type="submit"]');
+
+        contactForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            contactSubmitButton.disabled = true;
+            contactSubmitButton.textContent = '전송 중...';
+
+            const formData = new FormData(contactForm);
+            const inquiry = { name: formData.get('name'), email: formData.get('email'), message: formData.get('message') };
+
+            if (!inquiry.name || !inquiry.email || !inquiry.message) {
+                showToast('모든 항목을 입력해주세요.', 'error');
+                contactSubmitButton.disabled = false;
+                contactSubmitButton.textContent = '문의 등록하기';
+                return;
+            }
+
+            const { data, error } = await supabase.from('inquiries').insert([inquiry]);
+
+            if (error) {
+                showToast('오류가 발생했습니다. 다시 시도해주세요.', 'error');
+            } else {
+                showToast('문의가 성공적으로 접수되었습니다. 감사합니다!');
+                contactForm.reset();
+            }
+            contactSubmitButton.disabled = false;
+            contactSubmitButton.textContent = '문의 등록하기';
+        });
+        
+        // --- WonderMaker Pre-register Form Submission ---
+        const preregisterForm = document.getElementById('preregister-form');
+        const preregisterSubmitButton = preregisterForm.querySelector('button[type="submit"]');
+
+        preregisterForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            preregisterSubmitButton.disabled = true;
+            preregisterSubmitButton.textContent = '신청 중...';
+
+            const formData = new FormData(preregisterForm);
+            const email = formData.get('email');
+
+            if (!email) {
+                showToast('이메일 주소를 입력해주세요.', 'error');
+                preregisterSubmitButton.disabled = false;
+                preregisterSubmitButton.textContent = '사전 예약 신청하기';
+                return;
+            }
+
+            const { data, error } = await supabase.from('preregistrations').insert([{ email: email }]);
+
+            if (error) {
+                if (error.code === '23505') {
+                    showToast('이미 등록된 이메일입니다.', 'error');
+                } else {
+                    showToast('오류가 발생했습니다. 다시 시도해주세요.', 'error');
+                }
+            } else {
+                showToast('사전 예약이 완료되었습니다. 감사합니다!');
+                preregisterForm.reset();
+            }
+            preregisterSubmitButton.disabled = false;
+            preregisterSubmitButton.textContent = '사전 예약 신청하기';
+        });
+
+
+        // --- GSAP Animations ---
+        gsap.registerPlugin(ScrollTrigger);
+        
+        // Intro Animation
+        const pageLoadTl = gsap.timeline({delay: 0.2});
+        pageLoadTl
+            .from("#navbar", { yPercent: -100, duration: 0.8, ease: 'power3.out'})
+            .from("#home > div > *", { 
+                opacity: 0, 
+                y: 30,
+                duration: 1, 
+                ease: 'power3.out',
+                stagger: 0.2
+            });
+              
+        // Section Title Animations (Clip Path)
+        gsap.utils.toArray('.clip-text').forEach(text => {
+            ScrollTrigger.create({
+                trigger: text,
+                start: 'top 85%',
+                onEnter: () => text.classList.add('visible')
+            });
+        });
+
+        // Card Animations (Process, Services, Team)
+        gsap.utils.toArray('.process-card, .service-card, .team-card, #flexbuild > div').forEach((card, i) => {
+            gsap.from(card, {
+                y: 100,
+                opacity: 0,
+                duration: 0.8,
+                ease: 'power3.out',
+                scrollTrigger: {
+                    trigger: card,
+                    start: 'top 85%',
+                    toggleActions: 'play none none none'
+                },
+                delay: (i % 4) * 0.1
+            });
+        });
+        
+        // Tech Icon Animation
+        gsap.from(".tech-icon", {
+            scrollTrigger: {
+                trigger: ".tech-icon",
+                start: "top 90%",
+                toggleActions: "play none none none"
+            },
+            y: 50,
+            opacity: 0,
+            scale: 0.5,
+            stagger: 0.1,
+            ease: "back.out(1.7)"
+        });
+
+        // Contact Form Animation
+        gsap.from("#contact form > *", {
+            scrollTrigger: {
+                trigger: "#contact form",
+                start: "top 80%",
+                toggleActions: "play none none none",
+            },
+            y: 50,
+            opacity: 0,
+            duration: 0.8,
+            stagger: 0.2,
+            ease: 'power3.out'
+        });
+        
+        // --- 3D Team Card Effect ---
+        const teamCards = document.querySelectorAll('.team-card');
+        teamCards.forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const { width, height } = rect;
+                const rotateY = (x / width - 0.5) * -25;
+                const rotateX = (y / height - 0.5) * 25;
+                card.style.setProperty('--rotateY', `${rotateY}deg`);
+                card.style.setProperty('--rotateX', `${rotateX}deg`);
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.setProperty('--rotateY', '0deg');
+                card.style.setProperty('--rotateX', '0deg');
+            });
+        });
+        
+        // --- FAQ Accordion ---
+        const faqItems = document.querySelectorAll('.faq-item');
+        faqItems.forEach(item => {
+            const question = item.querySelector('.faq-question');
+            question.addEventListener('click', () => {
+                const isActive = item.classList.contains('active');
+                faqItems.forEach(i => i.classList.remove('active'));
+                if (!isActive) {
+                    item.classList.add('active');
+                }
+            });
+        });
+        
+        // --- Smooth Scrolling & Nav Highlighting ---
+        const navLinks = document.querySelectorAll('.nav-link');
+        const sections = document.querySelectorAll('section');
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetId = link.getAttribute('href');
+                const targetSection = document.querySelector(targetId);
+                window.scrollTo({
+                    top: targetSection.offsetTop - document.getElementById('navbar').offsetHeight,
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (pageYOffset >= sectionTop - document.getElementById('navbar').offsetHeight - 50) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').includes(current)) {
+                    link.classList.add('active');
+                }
+            });
+        });
+
+    </script>
+</body>
+</html>
